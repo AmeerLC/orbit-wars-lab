@@ -130,6 +130,35 @@ export const api = {
     }),
   deleteLocalReplay: (runId: string, matchId: string) =>
     j<{ deleted: boolean }>(`/replays/${runId}/${matchId}`, { method: "DELETE" }),
+  runPlayground: (cfg: {
+    planets: { x: number; y: number; radius: number; ships: number; production: number; owner: number }[];
+    agent_ids: string[];
+    format: "2p" | "4p";
+    seed?: number;
+  }) =>
+    j<{ run_id: string; match_id: string; status: string }>("/playground/run", {
+      method: "POST",
+      body: JSON.stringify(cfg),
+      headers: { "Content-Type": "application/json" },
+    }),
+  saveEnvironment: (env: {
+    name: string;
+    planets: { x: number; y: number; radius: number; ships: number; production: number; owner: number }[];
+    agent_ids: string[];
+    format: "2p" | "4p";
+  }) =>
+    j<{ saved: boolean; name: string }>("/playground/environments/save", {
+      method: "POST",
+      body: JSON.stringify(env),
+      headers: { "Content-Type": "application/json" },
+    }),
+  listEnvironments: () => j<PlaygroundEnvironment[]>("/playground/environments"),
+  getEnvironment: (name: string) =>
+    j<PlaygroundEnvironmentFull>(`/playground/environments/${encodeURIComponent(name)}`),
+  deleteEnvironment: (name: string) =>
+    j<{ deleted: boolean; name: string }>(`/playground/environments/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
   deleteKaggleReplay: (submissionId: number, episodeId: number) =>
     j<{ deleted: boolean }>(`/kaggle-replays/${submissionId}/${episodeId}`, {
       method: "DELETE",
@@ -178,4 +207,22 @@ export interface KaggleAuthStatus {
   shadowed?: boolean;
   saved_username?: string | null;
   deleted?: boolean;
+}
+
+export interface PlaygroundEnvironment {
+  name: string;
+  created_at: string;
+  planet_count: number;
+  format: "2p" | "4p";
+  player_count: number;
+  agent_ids: string[];
+}
+
+export interface PlaygroundEnvironmentFull {
+  name: string;
+  planets: { x: number; y: number; radius: number; ships: number; production: number; owner: number }[];
+  agent_ids: string[];
+  format: "2p" | "4p";
+  created_at: string;
+  updated_at: string;
 }

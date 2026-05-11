@@ -1,5 +1,6 @@
 import { parseHash, Route } from "./router";
 import { renderQuickMatch } from "./views/quick-match";
+import { renderPlayground } from "./views/playground";
 import { renderLeaderboard } from "./views/leaderboard";
 import { renderTournaments } from "./views/tournaments";
 import { renderTournamentDetail } from "./views/tournament-detail";
@@ -21,6 +22,7 @@ import "./styles/agent-picker.css";
 import "./styles/match-config-bar.css";
 import "./styles/embedded-replay.css";
 import "./styles/quick-match.css";
+import "./styles/playground.css";
 import "./styles/replays.css";
 import "./styles/tournaments.css";
 import "./styles/tournament-detail.css";
@@ -36,6 +38,8 @@ theme.init();
 function dispatch(route: Route) {
   if (route.view === "quick-match") {
     renderQuickMatch(app!);
+  } else if (route.view === "playground") {
+    renderPlayground(app!);
   } else if (route.view === "leaderboard") {
     renderLeaderboard(app!);
   } else if (route.view === "tournaments") {

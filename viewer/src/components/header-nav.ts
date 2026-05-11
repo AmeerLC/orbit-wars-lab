@@ -6,6 +6,7 @@ import { mountThemeToggle } from "./theme-toggle";
 
 export type NavRoute =
   | "quick-match"
+  | "playground"
   | "leaderboard"
   | "tournaments"
   | "replays"
@@ -21,6 +22,7 @@ export function installHeaderNav(root: HTMLElement, active: NavRoute): void {
     <div class="nav-brand">orbit-wars-lab</div>
     <nav class="nav-links">
       <a href="#/" class="nav-link ${active === "quick-match" ? "active" : ""}">Quick Match</a>
+      <a href="#/playground" class="nav-link ${active === "playground" ? "active" : ""}">Playground</a>
       <a href="#/tournaments" class="nav-link ${active === "tournaments" ? "active" : ""}">Tournaments</a>
       <a href="#/replays" class="nav-link ${active === "replays" ? "active" : ""}">Replays</a>
       <a href="#/submissions" class="nav-link ${active === "submissions" ? "active" : ""}">Submissions</a>

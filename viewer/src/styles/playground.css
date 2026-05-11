@@ -1,0 +1,479 @@
+/**
+ * Playground view styles.
+ * Naming convention: pg- prefix (following qm- pattern).
+ */
+
+/* ---- Layout ---- */
+
+.playground {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 49px);
+  overflow: hidden;
+}
+
+/* ---- Runner (editor + replay container) ---- */
+
+.pg-runner {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pg-editor {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: flex 250ms;
+}
+
+/* When replay is visible, shrink editor to a thin bar */
+.pg-runner-replay .pg-editor {
+  flex: 0 0 60px;
+  min-height: 60px;
+  overflow: hidden;
+}
+
+.pg-runner-replay .pg-editor .pg-canvas-wrap,
+.pg-runner-replay .pg-editor .pg-controls {
+  display: none;
+}
+
+.pg-runner-replay .pg-replay-area {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* ---- Canvas ---- */
+
+.pg-canvas-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg, #09090f);
+  padding: 8px;
+}
+
+.pg-canvas {
+  cursor: crosshair;
+  border-radius: 4px;
+}
+
+/* ---- Property panel ---- */
+
+.pg-property-panel {
+  position: absolute;
+  background: var(--surface, #13141a);
+  border: 1px solid var(--border, #2a2d3a);
+  border-radius: var(--radius, 6px);
+  padding: 10px 12px;
+  min-width: 170px;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+.pg-prop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pg-prop-row:last-of-type {
+  margin-bottom: 0;
+}
+
+.pg-prop-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text-secondary, #8890a8);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.pg-prop-owners {
+  display: flex;
+  gap: 3px;
+}
+
+.pg-owner-btn {
+  width: 26px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #2a2d3a);
+  background: transparent;
+  color: var(--text-secondary, #8890a8);
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pg-owner-btn:hover {
+  border-color: var(--c, #666);
+  background: color-mix(in srgb, var(--c, #666) 15%, transparent);
+}
+
+.pg-owner-btn.on {
+  background: var(--c, #666);
+  border-color: var(--c, #666);
+  color: #fff;
+}
+
+.pg-prop-input {
+  width: 64px;
+  background: var(--bg, #09090f);
+  border: 1px solid var(--border, #2a2d3a);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e4f0);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  text-align: right;
+}
+
+.pg-prop-input:focus {
+  outline: none;
+  border-color: var(--accent, #5EA5FF);
+}
+
+/* Orbit / static status line */
+
+.pg-prop-info {
+  font-size: 0.68rem;
+  font-family: var(--font-mono, monospace);
+  margin-bottom: 6px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.pg-prop-orbit {
+  color: #5EED9F;
+  background: color-mix(in srgb, #5EED9F 12%, transparent);
+}
+
+.pg-prop-static {
+  color: #ffaa44;
+  background: color-mix(in srgb, #ffaa44 10%, transparent);
+}
+
+.pg-prop-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border, #2a2d3a);
+}
+
+.pg-prop-del {
+  background: transparent;
+  border: 1px solid var(--error, #e05575);
+  color: var(--error, #e05575);
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.pg-prop-del:hover {
+  background: color-mix(in srgb, var(--error, #e05575) 15%, transparent);
+}
+
+.pg-prop-close {
+  background: transparent;
+  border: 1px solid var(--border, #2a2d3a);
+  color: var(--text-secondary, #8890a8);
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pg-prop-close:hover {
+  background: var(--surface-2, #1a1d28);
+  color: var(--text-primary, #e0e4f0);
+}
+
+/* ---- Controls rows ---- */
+
+.pg-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ---- Agent selects ---- */
+
+.pg-agent-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pg-agent-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-secondary, #8890a8);
+  letter-spacing: 0.03em;
+  min-width: 18px;
+}
+
+.pg-agent-select {
+  background: var(--bg, #09090f);
+  border: 1px solid var(--border, #2a2d3a);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e4f0);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  min-width: 180px;
+  cursor: pointer;
+}
+
+.pg-agent-select:focus {
+  outline: none;
+  border-color: var(--accent, #5EA5FF);
+}
+
+/* ---- Status ---- */
+
+.pg-status {
+  font-size: 0.78rem;
+  color: var(--error, #e05575);
+  font-family: var(--font-mono, monospace);
+}
+
+/* ---- Replay area ---- */
+
+.pg-replay-area {
+  flex: 0 0 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--border, #2a2d3a);
+  background: var(--bg, #09090f);
+  transition: flex 250ms;
+}
+
+.pg-replay-area[hidden] {
+  display: none;
+}
+
+.pg-replay-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--surface, #13141a);
+  border-bottom: 1px solid var(--border, #2a2d3a);
+}
+
+.pg-replay-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-secondary, #8890a8);
+  letter-spacing: 0.03em;
+}
+
+.pg-replay-back {
+  background: transparent;
+  border: 1px solid var(--border, #2a2d3a);
+  color: var(--text-secondary, #8890a8);
+  font-size: 0.7rem;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+
+.pg-replay-back:hover {
+  background: var(--surface-2, #1a1d28);
+  border-color: var(--accent, #5EA5FF);
+  color: var(--accent, #5EA5FF);
+}
+
+.pg-replay-inner {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hide the embedded replay's own "Back to list" bar —
+   playground has its own ← Editor bar. */
+.pg-replay-inner > .replay-back-bar {
+  display: none;
+}
+
+/* ---- Save/Load Environment UI ---- */
+
+.pg-save-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, #2a2d3a);
+}
+
+.pg-save-input {
+  background: var(--bg, #09090f);
+  border: 1px solid var(--border, #2a2d3a);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e4f0);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  min-width: 160px;
+}
+
+.pg-save-input:focus {
+  outline: none;
+  border-color: var(--accent, #5EA5FF);
+}
+
+.pg-save-status {
+  font-size: 0.72rem;
+  color: #5EED9F;
+  font-family: var(--font-mono, monospace);
+  margin-left: auto;
+}
+
+/* ---- Collapsible Sections ---- */
+
+.pg-collapsible {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border, #2a2d3a);
+  background: var(--surface, #13141a);
+}
+
+.pg-collapse-btn {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border, #2a2d3a);
+  color: var(--text-secondary, #8890a8);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms, color 120ms;
+}
+
+.pg-collapse-btn:hover {
+  background: var(--surface-2, #1a1d28);
+  color: var(--text-primary, #e0e4f0);
+}
+
+/* Controls section */
+.pg-controls {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Environments section */
+.pg-environments {
+  padding: 12px 16px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.pg-env-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.pg-env-card {
+  background: var(--bg, #09090f);
+  border: 1px solid var(--border, #2a2d3a);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.pg-env-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.pg-env-card-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #e0e4f0);
+  font-family: var(--font-mono, monospace);
+}
+
+.pg-env-card-meta {
+  font-size: 0.68rem;
+  color: var(--text-secondary, #8890a8);
+  font-family: var(--font-mono, monospace);
+  margin-bottom: 10px;
+}
+
+.pg-env-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pg-env-btn {
+  background: transparent;
+  border: 1px solid var(--border, #2a2d3a);
+  color: var(--text-secondary, #8890a8);
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+
+.pg-env-btn:hover {
+  background: var(--surface-2, #1a1d28);
+  border-color: var(--accent, #5EA5FF);
+  color: var(--accent, #5EA5FF);
+}
+
+.pg-env-btn.delete {
+  border-color: color-mix(in srgb, var(--error, #e05575) 40%, transparent);
+  color: color-mix(in srgb, var(--error, #e05575) 70%, #fff);
+}
+
+.pg-env-btn.delete:hover {
+  background: color-mix(in srgb, var(--error, #e05575) 15%, transparent);
+  border-color: var(--error, #e05575);
+  color: var(--error, #e05575);
+}
+
+.pg-env-empty {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8890a8);
+  font-style: italic;
+}

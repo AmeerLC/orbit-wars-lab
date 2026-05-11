@@ -16,6 +16,7 @@
 
 export type Route =
   | { view: "quick-match" }
+  | { view: "playground" }
   | { view: "leaderboard" }
   | { view: "tournaments" }
   | { view: "tournament-detail"; runId: string }
@@ -45,6 +46,8 @@ export function parseHash(hash: string): Route {
   const parts = path.split("/").filter(Boolean);
 
   if (parts.length === 0) return { view: "quick-match" };
+
+  if (parts[0] === "playground") return { view: "playground" };
 
   if (parts[0] === "leaderboard") return { view: "leaderboard" };
 
@@ -88,6 +91,8 @@ export function parseHash(hash: string): Route {
 export function navigate(route: Route): void {
   if (route.view === "quick-match") {
     location.hash = "#/";
+  } else if (route.view === "playground") {
+    location.hash = "#/playground";
   } else if (route.view === "leaderboard") {
     location.hash = "#/leaderboard";
   } else if (route.view === "tournaments") {

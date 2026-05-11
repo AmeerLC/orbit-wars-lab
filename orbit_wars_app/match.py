@@ -82,6 +82,89 @@ def run_match_fast(
     )
 
 
+def run_match_with_planets(
+    agent_ids: list[str],
+    agent_paths: list[Path],
+    planets: list[list],
+    *,
+    seed: int = 0,
+    episode_steps: int = 500,
+) -> MatchOutcome:
+    """Run a single match with a custom initial planet configuration.
+
+    Planets format: [id, owner, x, y, radius, ships, production]
+    owner: -1 = neutral, 0 = P1, 1 = P2, 2 = P3, 3 = P4
+
+    Injects planets into the kaggle-environments state before the first
+    interpreter step so the engine skips random planet generation.
+    """
+    if len(agent_ids) != len(agent_paths):
+        raise ValueError(
+            f"agent_ids and agent_paths length mismatch: "
+            f"{len(agent_ids)} vs {len(agent_paths)}"
+        )
+    num_players = len(agent_ids)
+
+    from kaggle_environments import make
+
+    env = make(
+        "orbit_wars",
+        configuration={"episodeSteps": episode_steps, "seed": seed},
+        debug=False,
+    )
+
+    # Inject custom planets into all agent observations.
+    # Must use dict-style access (Struct is dict-like).
+    next_fid = max((p[0] for p in planets), default=-1) + 1
+    for i in range(num_players):
+        obs = env.state[i].observation
+        obs["planets"] = [p.copy() for p in planets]
+        obs["initial_planets"] = [p.copy() for p in planets]
+        obs["fleets"] = []
+        obs["next_fleet_id"] = next_fid
+        obs["comets"] = []
+        obs["comet_planet_ids"] = []
+        obs["angular_velocity"] = 0.03
+        obs["step"] = 0
+        obs["player"] = i
+        obs["remainingOverageTime"] = 300
+
+    # Step once with empty actions so the interpreter runs its init path.
+    # It checks `if not obs0.planets:` — planets is non-empty, so it skips
+    # random generation and proceeds to production/movement/combat.
+    env.step([[] for _ in range(num_players)])
+
+    # Now env.run() won't reset() because len(env.steps) > 1.
+    start = time.monotonic()
+    try:
+        env.run([str(p / "main.py") for p in agent_paths])
+    except Exception as e:
+        duration = time.monotonic() - start
+        return MatchOutcome(
+            agent_ids=agent_ids,
+            winner=None,
+            scores=[],
+            turns=0,
+            duration_s=duration,
+            seed=seed,
+            status="crashed",
+            replay=_crashed_replay_skeleton(str(e)),
+        )
+    duration = time.monotonic() - start
+    replay = env.toJSON()
+    winner, scores, turns, status = _extract_outcome(replay, agent_ids)
+    return MatchOutcome(
+        agent_ids=agent_ids,
+        winner=winner,
+        scores=scores,
+        turns=turns,
+        duration_s=duration,
+        seed=seed,
+        status=status,
+        replay=replay,
+    )
+
+
 def _extract_outcome(
     replay: dict, agent_ids: list[str]
 ) -> tuple[Optional[str], list[int], int, str]:

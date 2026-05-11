@@ -22,6 +22,8 @@ from . import kaggle_submissions
 from .kaggle_auth import KaggleAuthError
 from .kaggle_submissions import KaggleCliError
 from .schemas import AgentInfo, AgentLogsResponse, KaggleSubmission, Rating, TournamentConfig
+from .match import run_match_with_planets
+from .replay_store import save_replay
 from .tournament import Tournament
 from .trueskill_store import TrueSkillStore
 
@@ -201,8 +203,244 @@ class ScrapeUrlRequest(BaseModel):
     url: str
 
 
+# ============================================================
+# Playground
+# ============================================================
+
+class PlaygroundPlanet(BaseModel):
+    x: float
+    y: float
+    radius: float = 1.5
+    ships: int = 10
+    production: int = 2
+    owner: int = -1  # -1 = neutral, 0 = P1, 1 = P2, 2 = P3, 3 = P4
+
+
+class PlaygroundRunRequest(BaseModel):
+    planets: list[PlaygroundPlanet]
+    agent_ids: list[str]
+    format: Literal["2p", "4p"] = "2p"
+    seed: int = 0
+
+
+@router.post("/playground/run")
+def run_playground(req: PlaygroundRunRequest) -> dict:
+    """Run a single match with custom planet configuration and return replay ID."""
+    from datetime import datetime, timezone
+
+    num_players = 4 if req.format == "4p" else 2
+    if len(req.agent_ids) != num_players:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format {req.format} requires exactly {num_players} agent_ids, got {len(req.agent_ids)}",
+        )
+    if len(req.planets) == 0:
+        raise HTTPException(status_code=400, detail="At least one planet is required")
+
+    # Validate planet constraints
+    seen_ids = set()
+    for i, p in enumerate(req.planets):
+        pid = i  # We assign IDs 0..N-1 based on order
+        seen_ids.add(pid)
+        if p.x < 0 or p.x > 100 or p.y < 0 or p.y > 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Planet {i}: position ({p.x}, {p.y}) is outside the board (0–100)",
+            )
+        sun_dist = ((p.x - 50) ** 2 + (p.y - 50) ** 2) ** 0.5
+        if sun_dist < 10 + p.radius:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Planet {i}: distance to sun ({sun_dist:.1f}) is less than sun radius + planet radius ({10 + p.radius})",
+            )
+        if p.owner < -1 or p.owner >= num_players:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Planet {i}: owner must be -1 (neutral) or 0–{num_players - 1}, got {p.owner}",
+            )
+        if p.ships < 0:
+            raise HTTPException(status_code=400, detail=f"Planet {i}: ships must be >= 0")
+        if p.production < 0:
+            raise HTTPException(status_code=400, detail=f"Planet {i}: production must be >= 0")
+
+    # Check each player has at least one planet
+    for pid_idx in range(num_players):
+        has_home = any(p.owner == pid_idx for p in req.planets)
+        if not has_home:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Player {pid_idx}: at least one planet with owner={pid_idx} is required",
+            )
+
+    # Resolve agents
+    zoo = scan_zoo(_zoo_root())
+    zoo_map = {a.id: a for a in zoo}
+    agent_paths: list[Path] = []
+    for aid in req.agent_ids:
+        info = zoo_map.get(aid)
+        if info is None:
+            raise HTTPException(status_code=404, detail=f"Agent {aid!r} not found in zoo")
+        if info.disabled:
+            raise HTTPException(status_code=400, detail=f"Agent {aid!r} is disabled")
+        agent_paths.append(_zoo_root().parent / info.path)
+
+    # Build planet arrays: [id, owner, x, y, radius, ships, production]
+    planet_arrays = [
+        [i, p.owner, p.x, p.y, p.radius, p.ships, p.production]
+        for i, p in enumerate(req.planets)
+    ]
+
+    # Run match
+    outcome = run_match_with_planets(
+        agent_ids=req.agent_ids,
+        agent_paths=agent_paths,
+        planets=planet_arrays,
+        seed=req.seed,
+    )
+
+    # Save to runs/playground/
+    playground_dir = _runs_root() / "playground"
+    replays_dir = playground_dir / "replays"
+    replays_dir.mkdir(parents=True, exist_ok=True)
+    match_counter = len(list(replays_dir.glob("*.json"))) + 1
+    rp = save_replay(replays_dir, match_counter, req.agent_ids, outcome.replay)
+    replay_rel = str(rp.relative_to(playground_dir))
+    match_id = f"{match_counter:03d}"
+
+    # Write minimal run.json and results.json so replay-loading routes work
+    now = datetime.now(timezone.utc).isoformat()
+    (playground_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "id": "playground",
+                "started_at": now,
+                "finished_at": now,
+                "mode": "fast",
+                "format": req.format,
+                "status": "completed",
+                "total_matches": 1,
+                "matches_done": 1,
+                "is_quick_match": False,
+            },
+            indent=2,
+        )
+    )
+    (playground_dir / "results.json").write_text(
+        json.dumps(
+            {
+                "started_at": now,
+                "finished_at": now,
+                "total_matches": 1,
+                "matches": [
+                    {
+                        "match_id": match_id,
+                        "agent_ids": req.agent_ids,
+                        "winner": outcome.winner,
+                        "scores": outcome.scores,
+                        "turns": outcome.turns,
+                        "duration_s": outcome.duration_s,
+                        "status": outcome.status,
+                        "seed": req.seed,
+                        "replay_path": replay_rel,
+                    }
+                ],
+                "summary": {"total_matches": 1},
+                "status": "completed",
+            },
+            indent=2,
+        )
+    )
+
+    return {"run_id": "playground", "match_id": match_id, "status": "completed"}
+
+
+# ============================================================
+# Playground — saved environments
+# ============================================================
+
+def _playground_env_dir() -> Path:
+    p = _runs_root() / "playground" / "environments"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+class SaveEnvironmentRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    planets: list[PlaygroundPlanet]
+    agent_ids: list[str]
+    format: Literal["2p", "4p"] = "2p"
+
+
+@router.post("/playground/environments/save")
+def save_environment(req: SaveEnvironmentRequest) -> dict:
+    """Save a playground planet configuration under a user-given name."""
+    from datetime import datetime, timezone
+
+    safe_name = req.name.strip()
+    if not safe_name:
+        raise HTTPException(status_code=400, detail="name must not be empty")
+    if "/" in safe_name or "\\" in safe_name:
+        raise HTTPException(status_code=400, detail="name must not contain path separators")
+
+    env_dir = _playground_env_dir()
+    path = env_dir / f"{safe_name}.json"
+
+    payload = {
+        "name": safe_name,
+        "planets": [p.model_dump() for p in req.planets],
+        "agent_ids": req.agent_ids,
+        "format": req.format,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    path.write_text(json.dumps(payload, indent=2))
+    return {"saved": True, "name": safe_name}
+
+
+@router.get("/playground/environments")
+def list_environments() -> list[dict]:
+    """List all saved playground environments."""
+    env_dir = _playground_env_dir()
+    out: list[dict] = []
+    for p in sorted(env_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(p.read_text())
+        except json.JSONDecodeError:
+            continue
+        planets = data.get("planets", [])
+        player_count = len(set(p["owner"] for p in planets if p["owner"] >= 0))
+        out.append({
+            "name": data.get("name", p.stem),
+            "created_at": data.get("created_at", ""),
+            "planet_count": len(planets),
+            "format": data.get("format", "2p"),
+            "player_count": player_count,
+            "agent_ids": data.get("agent_ids", []),
+        })
+    return out
+
+
+@router.get("/playground/environments/{name:path}")
+def get_environment(name: str) -> dict:
+    """Return the full saved environment config."""
+    safe = _safe_subpath(_playground_env_dir(), f"{name}.json")
+    if not safe.is_file():
+        raise HTTPException(status_code=404, detail=f"Environment {name!r} not found")
+    return json.loads(safe.read_text())
+
+
+@router.delete("/playground/environments/{name:path}")
+def delete_environment(name: str) -> dict:
+    """Delete a saved environment."""
+    safe = _safe_subpath(_playground_env_dir(), f"{name}.json")
+    if not safe.is_file():
+        raise HTTPException(status_code=404, detail=f"Environment {name!r} not found")
+    safe.unlink()
+    return {"deleted": True, "name": name}
+
+
 @router.post("/replays/scrape-url")
-def scrape_url(req: ScrapeUrlRequest) -> dict:
+def scrape_replay_url(req: ScrapeUrlRequest) -> dict:
     """Parse a Kaggle replay URL and fetch that single episode.
 
     Accepts:
@@ -411,7 +649,7 @@ def reset_ratings(format: Literal["2p", "4p", "all"] = "all") -> dict:
         if not per_fmt:
             del ratings[aid]
     data["ratings"] = ratings
-    path.write_text(_json.dumps(data, indent=2))
+    path.write_text(json.dumps(data, indent=2))
     return {"reset": True, "cleared": format, "entries_removed": removed}
 
 
