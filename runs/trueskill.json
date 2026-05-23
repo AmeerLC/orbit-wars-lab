@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-04-25T21:58:18.236721+00:00",
+  "last_updated": "2026-05-22T19:04:46.005714+00:00",
   "ratings": {
     "baselines/random": {
       "2p": {
@@ -21,9 +21,9 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 558.1748825221213,
-        "sigma": 16.118013770804424,
-        "games_played": 120
+        "mu": 558.5943764077601,
+        "sigma": 15.938672374732699,
+        "games_played": 137
       }
     },
     "baselines/nearest-sniper": {
@@ -33,21 +33,21 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 532.1464935553644,
-        "sigma": 15.87616556378035,
-        "games_played": 120
+        "mu": 542.0370882051064,
+        "sigma": 15.718235402215855,
+        "games_played": 145
       }
     },
     "external/pilkwang-structured": {
       "2p": {
-        "mu": 924.7899854339212,
-        "sigma": 40.2991539682099,
-        "games_played": 60
+        "mu": 833.5332354258197,
+        "sigma": 23.697833738449802,
+        "games_played": 114
       },
       "4p": {
-        "mu": 690.9707983845703,
-        "sigma": 18.785643406732202,
-        "games_played": 120
+        "mu": 660.8825371394227,
+        "sigma": 16.55415741522935,
+        "games_played": 154
       }
     },
     "external/tamrazov-starwars": {
@@ -57,21 +57,21 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 634.8717377630944,
-        "sigma": 17.262694534684016,
-        "games_played": 120
+        "mu": 638.2897472803778,
+        "sigma": 16.957667713429373,
+        "games_played": 127
       }
     },
     "external/yuriygreben-architect": {
       "2p": {
-        "mu": 929.0682788575485,
-        "sigma": 39.864912669673224,
-        "games_played": 60
+        "mu": 826.4241466014431,
+        "sigma": 24.187427210162877,
+        "games_played": 108
       },
       "4p": {
-        "mu": 643.9296328444976,
-        "sigma": 17.473885937023457,
-        "games_played": 120
+        "mu": 643.8808715741262,
+        "sigma": 16.199808352820337,
+        "games_played": 151
       }
     },
     "external/sigmaborov-reinforce": {
@@ -81,9 +81,9 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 621.587229604134,
-        "sigma": 17.014673495191918,
-        "games_played": 120
+        "mu": 616.0333861507063,
+        "sigma": 16.80508098748174,
+        "games_played": 124
       }
     },
     "external/sigmaborov-starter": {
@@ -93,9 +93,9 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 552.5213559223446,
-        "sigma": 16.034590539846775,
-        "games_played": 120
+        "mu": 553.4713059293961,
+        "sigma": 16.013444730547814,
+        "games_played": 121
       }
     },
     "external/kashiwaba-rl": {
@@ -105,9 +105,9 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 527.6951974139139,
-        "sigma": 15.86994170950161,
-        "games_played": 120
+        "mu": 529.4648517343837,
+        "sigma": 15.855337974821268,
+        "games_played": 123
       }
     },
     "external/ykhnkf-distance-prioritized": {
@@ -129,9 +129,52 @@
         "games_played": 60
       },
       "4p": {
-        "mu": 529.2061730684793,
-        "sigma": 15.883197102384887,
-        "games_played": 120
+        "mu": 529.2389466794269,
+        "sigma": 15.872524676192532,
+        "games_played": 121
+      }
+    },
+    "mine/mybot-v1": {
+      "4p": {
+        "mu": 606.0138600775504,
+        "sigma": 26.492016176416993,
+        "games_played": 26
+      }
+    },
+    "mine/mybotpw-v1": {
+      "4p": {
+        "mu": 646.7117371476731,
+        "sigma": 31.35722625153931,
+        "games_played": 19
+      },
+      "2p": {
+        "mu": 978.4005738282312,
+        "sigma": 111.99881447772391,
+        "games_played": 2
+      }
+    },
+    "mine/mybot-v2.5": {
+      "2p": {
+        "mu": 926.1359475912682,
+        "sigma": 23.446323746344294,
+        "games_played": 80
+      },
+      "4p": {
+        "mu": 726.3921642656943,
+        "sigma": 27.879107613052078,
+        "games_played": 28
+      }
+    },
+    "mine/mybot-v2.7": {
+      "4p": {
+        "mu": 681.672247050017,
+        "sigma": 26.4811552983092,
+        "games_played": 24
+      },
+      "2p": {
+        "mu": 923.5316924888735,
+        "sigma": 22.54172549469569,
+        "games_played": 86
       }
     }
   }

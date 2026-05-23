@@ -104,6 +104,19 @@
   gap: 3px;
 }
 
+.pg-prop-coord {
+  font-size: 0.78rem;
+  color: var(--text-primary, #c8cad8);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.pg-prop-sep {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #8890a8);
+}
+
 .pg-owner-btn {
   width: 26px;
   height: 22px;

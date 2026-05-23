@@ -254,6 +254,12 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
                 <label class="pg-prop-label" for="pg-prop-radius">Radius</label>
                 <input class="pg-prop-input" id="pg-prop-radius" type="number" min="0.5" max="10" step="0.1" value="1.5">
               </div>
+              <div class="pg-prop-row">
+                <span class="pg-prop-label">Position</span>
+                <span class="pg-prop-coord" id="pg-prop-x">0.0</span>
+                <span class="pg-prop-sep">,</span>
+                <span class="pg-prop-coord" id="pg-prop-y">0.0</span>
+              </div>
               <div class="pg-prop-info" id="pg-prop-info"></div>
               <div class="pg-prop-actions">
                 <button class="pg-prop-del" id="pg-prop-del">Delete</button>
@@ -273,7 +279,9 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
                 <button class="config-pill" id="pg-add-planet">+ Add Planet</button>
                 <button class="config-pill" id="pg-randomize">Randomize Map</button>
                 <button class="config-pill" id="pg-clear">Clear</button>
+                <button class="config-pill" id="pg-upload-env">Upload JSON</button>
                 <button class="config-pill" id="pg-save-env">Save</button>
+                <input id="pg-upload-input" type="file" accept="application/json" hidden>
               </div>
               <div class="pg-controls-row" id="pg-agent-row"></div>
               <div class="pg-controls-row">
@@ -327,6 +335,8 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
   const propProd = document.getElementById("pg-prop-prod") as HTMLInputElement;
   const propRadius = document.getElementById("pg-prop-radius") as HTMLInputElement;
   const propInfo = document.getElementById("pg-prop-info")!;
+  const propX = document.getElementById("pg-prop-x")!;
+  const propY = document.getElementById("pg-prop-y")!;
   const propDel = document.getElementById("pg-prop-del")!;
   const propClose = document.getElementById("pg-prop-close")!;
   const agentRow = document.getElementById("pg-agent-row")!;
@@ -341,13 +351,30 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
   const saveBtn = document.getElementById("pg-save-btn") as HTMLButtonElement;
   const cancelSaveBtn = document.getElementById("pg-cancel-save") as HTMLButtonElement;
   const saveStatus = document.getElementById("pg-save-status")!;
+  const uploadBtn = document.getElementById("pg-upload-env") as HTMLButtonElement;
+  const uploadInput = document.getElementById("pg-upload-input") as HTMLInputElement;
   const envGrid = document.getElementById("pg-env-grid")!;
   const controlsCollapseBtn = document.getElementById("pg-controls-collapse-btn")!;
   const controlsContent = document.getElementById("pg-controls-content")! as HTMLElement;
-  let controlsCollapsed = false;
+  let controlsCollapsed = true;
   const envCollapsible = document.getElementById("pg-collapsible")!;
   const envCollapseBtn = document.getElementById("pg-collapse-btn")!;
-  let envCollapsed = false;
+  let envCollapsed = true;
+
+  function updateControlsCollapseState() {
+    controlsContent.hidden = controlsCollapsed;
+    controlsContent.style.display = controlsCollapsed ? "none" : "flex";
+    controlsCollapseBtn.textContent = controlsCollapsed ? "▶ Controls" : "▼ Controls";
+  }
+
+  function updateEnvironmentCollapseState() {
+    const envsDiv = envCollapsible.querySelector(".pg-environments")! as HTMLElement;
+    envsDiv.hidden = envCollapsed;
+    envCollapseBtn.textContent = envCollapsed ? "▶ My Environments" : "▼ My Environments";
+  }
+
+  updateControlsCollapseState();
+  updateEnvironmentCollapseState();
 
   // ---- Canvas sizing ----
   function resizeCanvas() {
@@ -404,6 +431,8 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
     propShips.value = String(p.ships);
     propProd.value = String(p.production);
     propRadius.value = String(p.radius);
+    propX.textContent = p.x.toFixed(1);
+    propY.textContent = p.y.toFixed(1);
 
     const orbits = isOrbiting(p);
     propInfo.textContent = orbits ? "↻ orbits sun" : "static (too far to orbit)";
@@ -490,6 +519,8 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
     }
     renderCanvas();
     if (selectedId === draggingId) {
+      propX.textContent = cx.toFixed(1);
+      propY.textContent = cy.toFixed(1);
       const px = cx * s + planet.radius * s + 12;
       const py = cy * s - 70;
       if (px + 170 <= canvas.clientWidth) propPanel.style.left = `${px}px`;
@@ -610,6 +641,24 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
     }
   });
 
+  uploadBtn.addEventListener("click", () => uploadInput.click());
+  uploadInput.addEventListener("change", async () => {
+    if (!uploadInput.files || uploadInput.files.length === 0) return;
+    const file = uploadInput.files[0];
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      const env = parseUploadedEnvironment(data);
+      loadUploadedEnvironment(env);
+      statusEl.textContent = `Loaded ${file.name}`;
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = `Upload failed: ${(err as Error).message}`;
+    } finally {
+      uploadInput.value = "";
+    }
+  });
+
   saveInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") saveBtn.click();
   });
@@ -617,16 +666,13 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
   // ---- Collapsible Controls ----
   controlsCollapseBtn.addEventListener("click", () => {
     controlsCollapsed = !controlsCollapsed;
-    controlsContent.hidden = controlsCollapsed;
-    controlsCollapseBtn.textContent = controlsCollapsed ? "▶ Controls" : "▼ Controls";
+    updateControlsCollapseState();
   });
 
   // ---- Collapsible Environments ----
   envCollapseBtn.addEventListener("click", () => {
     envCollapsed = !envCollapsed;
-    const envsDiv = envCollapsible.querySelector(".pg-environments")! as HTMLElement;
-    envsDiv.hidden = envCollapsed;
-    envCollapseBtn.textContent = envCollapsed ? "▶ My Environments" : "▼ My Environments";
+    updateEnvironmentCollapseState();
   });
 
   // ---- Environments List ----
@@ -724,6 +770,106 @@ export async function renderPlayground(root: HTMLElement): Promise<void> {
     env.agent_ids.forEach((aid, i) => {
       if (i < np) agentIds[i] = aid;
     });
+    renderAgentRow();
+    renderCanvas();
+  }
+
+  function parseUploadedEnvironment(data: unknown) {
+    function parsePlanetArray(planetsData: any): PlanetData[] {
+      if (!Array.isArray(planetsData) || planetsData.length === 0) {
+        return [];
+      }
+      return planetsData.map((item: any, index: number) => {
+        if (!Array.isArray(item) || item.length < 7) {
+          throw new Error("Planet entry is malformed.");
+        }
+        return {
+          id: index,
+          owner: Number(item[1]),
+          x: Number(item[2]),
+          y: Number(item[3]),
+          radius: Number(item[4]),
+          ships: Number(item[5]),
+          production: Number(item[6]),
+        };
+      });
+    }
+
+    function parseObservation(obs: any) {
+      const planets = parsePlanetArray(obs.planets);
+      const initialPlanets = parsePlanetArray(obs.initial_planets);
+      const hasOwnedPlanets = (arr: PlanetData[]) => arr.some((p) => p.owner >= 0);
+      if (hasOwnedPlanets(planets)) {
+        return planets;
+      }
+      if (hasOwnedPlanets(initialPlanets)) {
+        return initialPlanets;
+      }
+      if (planets.length > 0) {
+        return planets;
+      }
+      if (initialPlanets.length > 0) {
+        return initialPlanets;
+      }
+      throw new Error("Uploaded JSON does not contain initial planets or planets data.");
+    }
+
+    let planets: PlanetData[] | null = null;
+    if (Array.isArray(data)) {
+      for (const step of data) {
+        if (Array.isArray(step)) {
+          for (const frame of step) {
+            if (frame && frame.observation) {
+              try {
+                planets = parseObservation(frame.observation);
+                break;
+              } catch {
+                continue;
+              }
+            }
+          }
+        } else if (step && step.observation) {
+          try {
+            planets = parseObservation(step.observation);
+          } catch {
+            // continue
+          }
+        }
+        if (planets) break;
+      }
+    } else if (data && typeof data === "object") {
+      const obj = data as any;
+      if (Array.isArray(obj.steps)) {
+        return parseUploadedEnvironment(obj.steps);
+      }
+      if (obj.observation) {
+        planets = parseObservation(obj.observation);
+      }
+    }
+    if (!planets) {
+      throw new Error("Unable to extract planets from uploaded JSON.");
+    }
+    const ownerIds = planets.map((p) => p.owner).filter((o) => o >= 0);
+    const maxOwner = ownerIds.length ? Math.max(...ownerIds) : 1;
+    const playerCount = maxOwner >= 3 ? 4 : 2;
+    const formatValue: "2p" | "4p" = playerCount === 4 ? "4p" : "2p";
+    return {
+      planets,
+      format: formatValue,
+    };
+  }
+
+  function loadUploadedEnvironment(env: { planets: PlanetData[]; format: "2p" | "4p"; }) {
+    hidePropPanel();
+    format = env.format;
+    root.querySelectorAll<HTMLButtonElement>("[data-fmt]").forEach((b) =>
+      b.classList.toggle("on", b.dataset.fmt === format)
+    );
+    planets = env.planets.map((p, i) => ({ ...p, id: i }));
+    nextId = planets.length;
+    const np = numPlayers();
+    agentIds = agentIds.slice(0, np);
+    while (agentIds.length < np) agentIds.push("");
     renderAgentRow();
     renderCanvas();
   }

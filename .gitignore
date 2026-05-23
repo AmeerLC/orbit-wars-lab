@@ -32,6 +32,7 @@ agents/mine/
 
 # Viewer transient
 viewer/replays/
+replays/
 
 # OS / editor
 .DS_Store
