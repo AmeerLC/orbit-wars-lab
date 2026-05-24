@@ -494,6 +494,130 @@ def scrape_replay_url(req: ScrapeUrlRequest) -> dict:
     }
 
 
+# Register upload endpoints with graceful fallback when multipart support
+try:
+    # Try to import multipart helpers — FastAPI needs python-multipart for UploadFile
+    from fastapi import UploadFile, File  # type: ignore
+
+    @router.post("/replays/upload")
+    def upload_replay(file: UploadFile = File(...)) -> dict:
+        """Upload a Kaggle episode JSON file (multipart/form-data).
+
+        Writes to `replays/kaggle/Uploads/<episode_id>.json` and a `.meta.json`.
+        """
+        try:
+            raw = file.file.read()
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            payload = json.loads(raw)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON file upload")
+
+        episode_id = None
+        try:
+            if isinstance(payload, dict):
+                for k in ("EpisodeId", "episodeId", "episode_id"):
+                    if k in payload:
+                        episode_id = int(payload[k])
+                        break
+                if episode_id is None:
+                    info = payload.get("info") or {}
+                    if isinstance(info, dict):
+                        for k in ("EpisodeId", "episodeId", "episode_id"):
+                            if k in info:
+                                episode_id = int(info[k])
+                                break
+        except Exception:
+            episode_id = None
+
+        if episode_id is None:
+            import re
+
+            m = re.search(r"(\d+)", file.filename or "")
+            if m:
+                episode_id = int(m.group(1))
+
+        if episode_id is None:
+            episode_id = uuid.uuid4().hex
+
+        replays_root = _replays_root()
+        out_dir = replays_root / "kaggle" / "Uploads"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        replay_path = out_dir / f"{episode_id}.json"
+        meta_path = out_dir / f"{episode_id}.meta.json"
+
+        replay_path.write_text(json.dumps(payload), encoding="utf-8")
+        try:
+            meta = kaggle_scraper._extract_meta(payload, int(episode_id) if str(episode_id).isdigit() else episode_id)
+        except Exception:
+            meta = {"episode_id": episode_id}
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+        return {"episode_id": episode_id, "path": str(replay_path.relative_to(replays_root.parent))}
+
+except Exception:
+    # multipart support not available — register a stub that points user to JSON upload
+    @router.post("/replays/upload")
+    def upload_replay_stub() -> dict:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "File upload support is not available: install python-multipart in the server environment. "
+                "As a workaround, POST JSON to /api/replays/upload-json instead."
+            ),
+        )
+
+
+@router.post("/replays/upload-json")
+def upload_replay_json(payload: dict) -> dict:
+    """Upload a Kaggle replay by sending the JSON payload in the request body.
+
+    Body should be the replay JSON (application/json). This avoids multipart
+    dependencies and can be used as a quick workaround.
+    """
+    try:
+        payload = dict(payload) if isinstance(payload, dict) else json.loads(payload)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    episode_id = None
+    try:
+        if isinstance(payload, dict):
+            for k in ("EpisodeId", "episodeId", "episode_id"):
+                if k in payload:
+                    episode_id = int(payload[k])
+                    break
+            if episode_id is None:
+                info = payload.get("info") or {}
+                if isinstance(info, dict):
+                    for k in ("EpisodeId", "episodeId", "episode_id"):
+                        if k in info:
+                            episode_id = int(info[k])
+                            break
+    except Exception:
+        episode_id = None
+
+    if episode_id is None:
+        episode_id = uuid.uuid4().hex
+
+    replays_root = _replays_root()
+    out_dir = replays_root / "kaggle" / "Uploads"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    replay_path = out_dir / f"{episode_id}.json"
+    meta_path = out_dir / f"{episode_id}.meta.json"
+
+    replay_path.write_text(json.dumps(payload), encoding="utf-8")
+    try:
+        meta = kaggle_scraper._extract_meta(payload, int(episode_id) if str(episode_id).isdigit() else episode_id)
+    except Exception:
+        meta = {"episode_id": episode_id}
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    return {"episode_id": episode_id, "path": str(replay_path.relative_to(replays_root.parent))}
+
+
 @router.post("/replays/scrape")
 def start_scrape(req: ScrapeRequest) -> dict:
     """Start background scrape of Kaggle episodes for a submission.

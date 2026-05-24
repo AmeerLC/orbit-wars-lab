@@ -171,6 +171,17 @@ export const api = {
     j<{ reset: boolean }>(`/ratings/reset?format=${format}`, { method: "POST" }),
   listKaggleSubmissions: () =>
     j<KaggleSubmission[]>(`/kaggle-submissions`),
+  uploadKaggleReplay: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetch(`/api/replays/upload`, { method: "POST", body: fd }).then(async (r) => {
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ detail: r.statusText }));
+        throw new Error(err.detail || r.statusText);
+      }
+      return r.json();
+    });
+  },
   submitKaggleAgent: (agentId: string, description: string) =>
     j<{ ok: boolean; message: string }>(`/kaggle-submissions`, {
       method: "POST",

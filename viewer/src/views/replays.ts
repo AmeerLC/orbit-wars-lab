@@ -84,6 +84,11 @@ export async function renderReplays(
           </div>
           <div id="scrape-status" class="scrape-status" hidden></div>
         </div>
+        <div class="upload-panel">
+          <input id="replay-file-input" type="file" accept="application/json,.json" style="display:none">
+          <button id="replay-upload-btn" class="scrape-btn">Upload JSON</button>
+          <div id="upload-status" class="scrape-status" hidden></div>
+        </div>
         <div id="replays-list" class="replays-list"></div>
       </section>
     </main>
@@ -380,6 +385,27 @@ export async function renderReplays(
       await loadList();
     } catch (e) {
       statusEl.textContent = `Error: ${(e as Error).message}`;
+    }
+  });
+
+  // Upload JSON via file picker
+  const uploadBtn = document.getElementById("replay-upload-btn")! as HTMLButtonElement;
+  const fileInput = document.getElementById("replay-file-input") as HTMLInputElement;
+  const uploadStatus = document.getElementById("upload-status")!;
+  uploadBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    const files = fileInput.files;
+    if (!files || files.length === 0) return;
+    const f = files[0];
+    uploadStatus.hidden = false;
+    uploadStatus.textContent = "Uploading…";
+    try {
+      const data = await api.uploadKaggleReplay(f as any as File);
+      uploadStatus.textContent = `Uploaded: episode ${data.episode_id}`;
+      fileInput.value = "";
+      await loadList();
+    } catch (e) {
+      uploadStatus.textContent = `Upload failed: ${(e as Error).message}`;
     }
   });
 

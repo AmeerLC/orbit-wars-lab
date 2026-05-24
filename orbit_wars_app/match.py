@@ -113,6 +113,9 @@ def run_match_with_planets(
         debug=False,
     )
 
+    # Initialize the environment for the requested number of players.
+    env.reset(num_agents=num_players)
+
     # Inject custom planets into all agent observations.
     # Must use dict-style access (Struct is dict-like).
     next_fid = max((p[0] for p in planets), default=-1) + 1

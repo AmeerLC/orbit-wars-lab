@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-05-22T19:04:46.005714+00:00",
+  "last_updated": "2026-05-23T13:00:09.938175+00:00",
   "ratings": {
     "baselines/random": {
       "2p": {
@@ -45,9 +45,9 @@
         "games_played": 114
       },
       "4p": {
-        "mu": 660.8825371394227,
-        "sigma": 16.55415741522935,
-        "games_played": 154
+        "mu": 656.4723597517808,
+        "sigma": 15.9559352072486,
+        "games_played": 174
       }
     },
     "external/tamrazov-starwars": {
@@ -69,9 +69,9 @@
         "games_played": 108
       },
       "4p": {
-        "mu": 643.8808715741262,
-        "sigma": 16.199808352820337,
-        "games_played": 151
+        "mu": 649.9644460504252,
+        "sigma": 15.842201413650011,
+        "games_played": 171
       }
     },
     "external/sigmaborov-reinforce": {
@@ -160,16 +160,16 @@
         "games_played": 80
       },
       "4p": {
-        "mu": 726.3921642656943,
-        "sigma": 27.879107613052078,
-        "games_played": 28
+        "mu": 709.5326797738659,
+        "sigma": 21.398192116148124,
+        "games_played": 48
       }
     },
     "mine/mybot-v2.7": {
       "4p": {
-        "mu": 681.672247050017,
-        "sigma": 26.4811552983092,
-        "games_played": 24
+        "mu": 692.8919696376512,
+        "sigma": 20.709767662849043,
+        "games_played": 44
       },
       "2p": {
         "mu": 923.5316924888735,

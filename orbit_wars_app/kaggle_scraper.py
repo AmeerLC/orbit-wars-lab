@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
 import threading
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+import os
 
 import requests
 
@@ -37,6 +39,46 @@ def _build_session() -> requests.Session:
             "User-Agent": "orbit-wars-lab-scraper/1.0",
         }
     )
+    # If the user configured Kaggle credentials (env or ~/.kaggle/kaggle.json),
+    # add them to the session so authenticated endpoints (GetEpisodeReplay)
+    # that require auth will succeed. Prefer environment variables first
+    # (this matches the Kaggle SDK precedence), then fallback to the saved
+    # kaggle.json file.
+    try:
+        # Env var token (new-style KGAT_ bearer)
+        token = os.environ.get("KAGGLE_API_TOKEN", "").strip()
+        if token:
+            session.headers.update({"Authorization": f"Bearer {token}"})
+            return session
+        # Legacy env username/key
+        user = os.environ.get("KAGGLE_USERNAME", "").strip()
+        key = os.environ.get("KAGGLE_KEY", "").strip()
+        if user and key:
+            session.auth = (user, key)
+            return session
+        # Fallback: read saved kaggle.json
+        try:
+            from . import kaggle_auth
+
+            token_path = kaggle_auth._token_path()
+            if token_path.is_file():
+                try:
+                    raw = json.loads(token_path.read_text())
+                    k = raw.get("key")
+                    u = raw.get("username")
+                    if isinstance(u, str) and u.strip() and isinstance(k, str) and k.strip():
+                        # Kaggle EpisodeService endpoints prefer Basic auth (username:key)
+                        # over Bearer tokens, even when the key format is KGAT_...
+                        session.auth = (u.strip(), k.strip())
+                except Exception:
+                    # If parsing fails, continue anonymous session
+                    pass
+        except Exception:
+            # If kaggle_auth import fails for any reason, keep anonymous
+            pass
+    except Exception:
+        # Best-effort: do not let credential handling crash the scraper
+        pass
     return session
 
 
@@ -44,7 +86,19 @@ def _post_json(
     session: requests.Session, endpoint: str, payload: dict, timeout: int
 ) -> dict:
     response = session.post(endpoint, json=payload, timeout=timeout)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        # Provide a helpful hint when Kaggle's GetEpisodeReplay endpoint
+        # returns 404 for anonymous requests (site changes may require auth).
+        if response.status_code == 404 and endpoint.endswith("GetEpisodeReplay"):
+            raise Exception(
+                "Kaggle EpisodeService.GetEpisodeReplay returned 404. "
+                "Kaggle appears to require authentication to download episode replays. "
+                "Enable Kaggle integration in Settings (provide a Kaggle API token) "
+                "or download replays via the Kaggle CLI on a machine with credentials."
+            ) from e
+        raise
     return response.json()
 
 
@@ -67,6 +121,64 @@ def fetch_replay(session: requests.Session, episode_id: int) -> dict:
         payload={"episodeId": episode_id},
         timeout=60,
     )
+
+
+def _fetch_replay_via_kaggle_sdk(episode_id: int) -> dict:
+    """Fallback: use Kaggle Python SDK to download episode replay.
+    
+    Requires: kaggle package installed and configured with ~/.kaggle/kaggle.json.
+    Uses: KaggleApi.competition_episode_replay()
+    Returns parsed replay JSON dict. Raises on error.
+    """
+    from tempfile import NamedTemporaryFile
+    
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+    except ImportError:
+        raise Exception(
+            "Kaggle Python package not found. Install it with: pip install kaggle"
+        )
+    
+    try:
+        kaggle_api = KaggleApi()
+        kaggle_api.authenticate()
+        
+        # The SDK method downloads to a file, so we need a temporary file
+        with NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as tmp:
+            tmp_path = tmp.name
+        
+        try:
+            # Download replay to the temp file
+            # Note: competition_episode_replay() writes directly to disk
+            kaggle_api.competition_episode_replay(
+                episode_id=episode_id,
+                path=tmp_path,
+                quiet=True,
+            )
+            
+            # Read and parse the JSON file
+            replay_dict = json.loads(Path(tmp_path).read_text())
+            logger.info(f"Downloaded episode {episode_id} via Kaggle SDK")
+            return replay_dict
+        finally:
+            # Clean up temp file
+            Path(tmp_path).unlink(missing_ok=True)
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "401" in error_msg or "Unauthorized" in error_msg:
+            raise Exception(
+                "Kaggle authentication failed (401 Unauthorized). "
+                "Your credentials may be invalid or expired. "
+                "Try: (1) Delete ~/.kaggle/kaggle.json and re-authenticate in Settings, "
+                "(2) Verify your Kaggle credentials at https://www.kaggle.com/account/info"
+            ) from e
+        raise Exception(
+            f"Kaggle SDK replay download failed: {e}. "
+            f"Ensure kaggle is installed and ~/.kaggle/kaggle.json is configured."
+        ) from e
+
+
 
 
 # ============================================================
@@ -243,7 +355,22 @@ def scrape_single_episode(
         # Rebuild meta from existing replay
         payload = json.loads(replay_path.read_text())
     else:
-        payload = fetch_replay(session, episode_id)
+        try:
+            payload = fetch_replay(session, episode_id)
+        except Exception as http_error:
+            # If the direct HTTP fetch fails (typically 404 from restricted endpoint),
+            # try the Kaggle SDK as fallback.
+            logger.info(
+                f"HTTP replay fetch for episode {episode_id} failed: {http_error}. "
+                f"Trying Kaggle SDK fallback..."
+            )
+            try:
+                payload = _fetch_replay_via_kaggle_sdk(episode_id)
+            except Exception as sdk_error:
+                raise Exception(
+                    f"Both HTTP and Kaggle SDK replay fetch failed. HTTP: {http_error}. "
+                    f"SDK: {sdk_error}"
+                ) from sdk_error
         replay_path.write_text(json.dumps(payload), encoding="utf-8")
 
     meta_path.write_text(json.dumps(_extract_meta(payload, episode_id), indent=2))
