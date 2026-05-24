@@ -41,8 +41,10 @@ def _get_api():
     api = KaggleApi()
     try:
         api.authenticate()
+    except SystemExit as e:
+        raise KaggleCliError(401, f"Kaggle auth failed: {e}") from e
     except Exception as e:
-        raise KaggleCliError(401, f"Kaggle auth failed: {e}")
+        raise KaggleCliError(401, f"Kaggle auth failed: {e}") from e
     return api
 
 

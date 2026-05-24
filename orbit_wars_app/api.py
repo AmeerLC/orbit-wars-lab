@@ -60,6 +60,10 @@ def _replays_root() -> Path:
     return Path(os.environ.get("ORBIT_WARS_REPLAYS_DIR", "replays"))
 
 
+def _kaggle_submission_dir(submission_id: int) -> Path:
+    return _replays_root() / "kaggle" / ("Uploads" if submission_id == 0 else str(submission_id))
+
+
 @router.get("/agents", response_model=list[AgentInfo])
 def list_agents() -> list[AgentInfo]:
     return scan_zoo(_zoo_root())
@@ -538,14 +542,14 @@ try:
                 episode_id = int(m.group(1))
 
         if episode_id is None:
-            episode_id = uuid.uuid4().hex
+            episode_id = int(time.time() * 1000)
 
         replays_root = _replays_root()
         out_dir = replays_root / "kaggle" / "Uploads"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        replay_path = out_dir / f"{episode_id}.json"
-        meta_path = out_dir / f"{episode_id}.meta.json"
+        replay_path = out_dir / f"episode_{episode_id}.json"
+        meta_path = out_dir / f"episode_{episode_id}.meta.json"
 
         replay_path.write_text(json.dumps(payload), encoding="utf-8")
         try:
@@ -599,14 +603,14 @@ def upload_replay_json(payload: dict) -> dict:
         episode_id = None
 
     if episode_id is None:
-        episode_id = uuid.uuid4().hex
+        episode_id = int(time.time() * 1000)
 
     replays_root = _replays_root()
     out_dir = replays_root / "kaggle" / "Uploads"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    replay_path = out_dir / f"{episode_id}.json"
-    meta_path = out_dir / f"{episode_id}.meta.json"
+    replay_path = out_dir / f"episode_{episode_id}.json"
+    meta_path = out_dir / f"episode_{episode_id}.meta.json"
 
     replay_path.write_text(json.dumps(payload), encoding="utf-8")
     try:
@@ -686,11 +690,17 @@ def get_scrape_progress(job_id: str) -> dict:
 
 @router.delete("/kaggle-replays/{submission_id}/{episode_id}")
 def delete_kaggle_replay(submission_id: int, episode_id: int) -> dict:
-    base = _replays_root() / "kaggle" / str(submission_id)
-    for p in (
+    base = _kaggle_submission_dir(submission_id)
+    candidates = [
         base / f"episode_{episode_id}.json",
         base / f"episode_{episode_id}.meta.json",
-    ):
+    ]
+    if submission_id == 0:
+        candidates.extend([
+            base / f"{episode_id}.json",
+            base / f"{episode_id}.meta.json",
+        ])
+    for p in candidates:
         if p.is_file():
             p.unlink()
     return {"deleted": True, "submission_id": submission_id, "episode_id": episode_id}
@@ -791,9 +801,10 @@ def delete_run(run_id: str) -> dict:
 
 @router.get("/kaggle-replays/{submission_id}/{episode_id}")
 def get_kaggle_replay(submission_id: int, episode_id: int) -> dict:
-    path = (
-        _replays_root() / "kaggle" / str(submission_id) / f"episode_{episode_id}.json"
-    )
+    base = _kaggle_submission_dir(submission_id)
+    path = base / f"episode_{episode_id}.json"
+    if not path.is_file() and submission_id == 0:
+        path = base / f"{episode_id}.json"
     if not path.is_file():
         raise HTTPException(
             status_code=404,

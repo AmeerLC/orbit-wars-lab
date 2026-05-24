@@ -577,7 +577,11 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
       const p = JSON.parse(pendingRaw);
       if (p.kind === "local" && p.runId && p.matchId) {
         void loadReplayAndPopulate({ kind: "local", runId: p.runId, matchId: p.matchId });
-      } else if (p.kind === "kaggle" && p.submissionId && p.episodeId) {
+      } else if (
+        p.kind === "kaggle" &&
+        typeof p.submissionId === "number" &&
+        typeof p.episodeId === "number"
+      ) {
         void loadReplayAndPopulate({
           kind: "kaggle",
           submissionId: p.submissionId,

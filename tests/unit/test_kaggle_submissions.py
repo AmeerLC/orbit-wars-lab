@@ -189,6 +189,23 @@ def test_get_api_bridges_kgat_into_env(monkeypatch, tmp_path):
     assert captured["env"] == "KGAT_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 
+def test_get_api_translates_system_exit_to_kaggle_cli_error(monkeypatch):
+    class _StubApi:
+        def authenticate(self):
+            raise SystemExit(1)
+
+    import sys
+    import types as _types
+    fake_mod = _types.ModuleType("kaggle.api.kaggle_api_extended")
+    fake_mod.KaggleApi = _StubApi
+    monkeypatch.setitem(sys.modules, "kaggle.api.kaggle_api_extended", fake_mod)
+
+    with pytest.raises(KaggleCliError) as exc:
+        ks._get_api()
+    assert exc.value.status_code == 401
+    assert "Kaggle auth failed" in str(exc.value)
+
+
 # =========================
 # fetch_agent_logs tests
 # =========================

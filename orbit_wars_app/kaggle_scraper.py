@@ -407,10 +407,14 @@ def list_local_kaggle_replays(replays_root: Path) -> list[dict]:
         if not sub_dir.is_dir():
             continue
         submission_id_str = sub_dir.name
-        try:
-            submission_id = int(submission_id_str)
-        except ValueError:
-            continue
+        submission_id: int
+        if submission_id_str == "Uploads":
+            submission_id = 0
+        else:
+            try:
+                submission_id = int(submission_id_str)
+            except ValueError:
+                continue
 
         # Per-submission metadata (from ListEpisodes) if present
         bulk_meta_path = sub_dir / "_metadata.json"
@@ -423,12 +427,19 @@ def list_local_kaggle_replays(replays_root: Path) -> list[dict]:
             except Exception:
                 pass
 
-        for replay_file in sorted(sub_dir.glob("episode_*.json")):
+        for replay_file in sorted(sub_dir.glob("*.json")):
             if replay_file.name.endswith(".meta.json"):
                 continue
-            try:
-                ep_id = int(replay_file.stem.replace("episode_", ""))
-            except ValueError:
+            ep_id = None
+            stem = replay_file.stem
+            if stem.startswith("episode_"):
+                try:
+                    ep_id = int(stem.replace("episode_", ""))
+                except ValueError:
+                    continue
+            elif submission_id == 0 and stem.isdigit():
+                ep_id = int(stem)
+            else:
                 continue
             entry = {
                 "source": "kaggle",
